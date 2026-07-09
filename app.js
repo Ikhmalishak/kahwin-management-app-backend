@@ -7,8 +7,18 @@ const pool = require('./config/db');
 
 // Middleware
 app.use(helmet());
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(s => s.trim())
+  : ['http://localhost:5173'];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o))) {
+      cb(null, true);
+    } else {
+      cb(null, false);
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
@@ -35,6 +45,11 @@ app.use('/api/guests', require('./middlewares/auth.middleware').authenticate, gu
 app.use('/api/vendors', require('./middlewares/auth.middleware').authenticate, vendorRoutes);
 app.use('/api/documents', require('./middlewares/auth.middleware').authenticate, documentRoutes);
 app.use('/api/invitations', require('./middlewares/auth.middleware').authenticate, invitationRoutes);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ success: true, message: 'OK' });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -69,7 +84,7 @@ module.exports = app;
 
 // Start the server only when not in test environment
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
-    console.log(`Server is successfully running on http://localhost:${PORT}`);
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is successfully running on port ${PORT}`);
   });
 }
